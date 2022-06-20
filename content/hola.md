@@ -13,7 +13,7 @@ I did not really want to setup Jekyll, and writing HTML by hand was not on my mi
 
 Searching for a comprehensive list of SSGs yielded massive amount of results, each of them with slightly different capabilities and usecases.
 And most importantly, they had different tech stacks.
-Using `js` with `npm` was a no-`go` for me, so i started to look for rust based versions, and I found Zola.
+Using `js` with `npm` was a no-`go` for me, so I started to look for rust based versions, and I found Zola.
 
 Getting Zola to run was really easy, but I could not figure out easily how to do actual pages in it.
 Digging in the docs (which were really user friendly) and peeking into the theme source codes gave me enough grip to figure out the basics.
