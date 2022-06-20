@@ -1,0 +1,26 @@
+base_url = "https://nosylayman.github.io/"
+title = "Nosy Layman Ramblings"
+compile_sass = true
+build_search_index = true
+taxonomies = [
+    {name = "tags"}
+]
+theme = "terminimal"
+
+[markdown]
+highlight_code = true
+highlight_theme = "boron"
+
+[extra]
+accent_color = "blue"
+background_color = "dark"
+logo_text = "Nosy Layman Ramblings"
+author = "Nosy Layman"
+menu_items = [
+    {name = "blog", url = "$BASE_URL"},
+    {name = "tags", url = "$BASE_URL/tags"},
+    {name = "archive", url = "$BASE_URL/archive"},
+    {name = "about me", url = "$BASE_URL/about"},
+    {name = "github", url = "https://github.com/NosyLayman", newtab = true},
+]
+enable_post_view_navigation = true
