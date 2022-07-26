@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Nosy Layman Ramblings</title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://nosylayman.github.io/style.css">
+    <link rel="stylesheet" href="https://nosylayman.github.io/color/blue.css">
+
+        <link rel="stylesheet" href="https://nosylayman.github.io/color/background_dark.css">
+    
+    <link rel="stylesheet" href="https://nosylayman.github.io/font-hack-subset.css">
+
+
+
+<link rel="stylesheet" href="https://nosylayman.github.io/katex.css">
+<script defer src="https://nosylayman.github.io/katex.js"></script>
+<script defer src="https://nosylayman.github.io/auto-render.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement(document.body, {
+            delimiters: [
+              {left: "££", right: "££", display: true},
+              {left: "$", right: "$", display: false},
+            ]
+        });
+    });
+</script>
+
+
+</head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://nosylayman.github.io/" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            Nosy Layman Ramblings
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://nosylayman.github.io/">blog</a></li>
+            
+                <li><a href="https://nosylayman.github.io//tags">tags</a></li>
+            
+                <li><a href="https://nosylayman.github.io//archive">archive</a></li>
+            
+                <li><a href="https://nosylayman.github.io//about">about me</a></li>
+            
+                <li><a href="https://github.com/NosyLayman" target="_blank" rel="noopener noreferrer">github</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://nosylayman.github.io/gameaboutsquares-solver/">Game About Squares Solver</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2022-07-26
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://nosylayman.github.io/tags/game-about-squares/">#game about squares</a>&nbsp;
+                <a class="post-tag" href="https://nosylayman.github.io/tags/puzzle/">#puzzle</a>&nbsp;
+                <a class="post-tag" href="https://nosylayman.github.io/tags/solver/">#solver</a>&nbsp;
+                <a class="post-tag" href="https://nosylayman.github.io/tags/rust/">#rust</a></span>
+    
+
+        
+        <div class="post-content">
+            <p><em>A case study of copying the homework badly</em></p>
+<h2 id="the-game">The game</h2>
+<p>... you just lost it.</p>
+<p>No, the other game. In the title. A <a href="http://gameaboutsquares.com/">game about squares</a>.</p>
+<p>I came across this little puzzle on a hellsite, and it immediately rang a bell. In the other day I read a well written blogpost about writing puzzle solvers. It had an example puzzle about some squares that needed to get to their destinations.</p>
+<span id="continue-reading"></span><h2 id="the-blogpost">The blogpost</h2>
+<p>So a hysterical digging started; where did I see that post and where did I bookmark it if I ever did that. A good hour later I was reading <a href="https://davidkoloski.me/blog/intelligent-brute-forcing/">the post</a> again. I can only recommend it, give it a read, well worth the time.</p>
+<p>The post introduces a game, and goes through step by step of writing an efficient solver for it. Everytime the puzzle level complexity rises a new trick is revealed from up the sleeve. The code is in Rust, which is convenient for me as I try to learn the language through writing smaller projects.</p>
+<h2 id="the-code">The code</h2>
+<p>First a lot of boilerplate code is needed. The puzzle rules are not mine, so I had to play it a while to get the whole picture. I deemed that 23 levels should be enough experience to be confident no other rules will be introduced later (not that I got stuck on that puzzle, how dare you).</p>
+<p>So there is a need for the game state to be represented. It consists of 3 types of game elements (not counting the empty space):</p>
+<ul>
+<li>squares</li>
+<li>goals</li>
+<li>turns</li>
+</ul>
+<p>At least this is how they are called in the code, the game narrative is rather reticent about the deep lore.</p>
+<p>The first instinct would be using a grid and store all the tiles that are part of the game (as it is in the article), but not only would that be inefficient, but the puzzle is not spatially bound, the squares can freely move and can leave the initial area.</p>
+<p>The structures contain only a few data members, and I took the liberty of using 8-bit types knowing that the puzzle space is very limited which actually needs to be used by the solution, and if later a larger input is given I can just upgrade the type then. The thought process was that there will be quite a lot of game states explored while searching the &quot;graph&quot;, so better make it as small as it gets.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span>#[</span><span style="color:#ffb964;">derive</span><span>(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+</span><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Pos </span><span>{
+</span><span>    </span><span style="color:#888888;">// using screen coordinates, y increases downwards
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">x</span><span>: </span><span style="color:#8fbfdc;">i8</span><span>,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">y</span><span>: </span><span style="color:#8fbfdc;">i8</span><span>,
+</span><span>}
+</span><span>
+</span><span>#[</span><span style="color:#ffb964;">derive</span><span>(Copy, Clone, Debug, Eq, PartialEq)]
+</span><span>#[</span><span style="color:#ffb964;">repr</span><span>(i8)]
+</span><span style="color:#8fbfdc;">pub enum </span><span style="color:#ffb964;">Dir </span><span>{
+</span><span>    Up,
+</span><span>    Down,
+</span><span>    Left,
+</span><span>    Right,
+</span><span>}
+</span><span>
+</span><span>#[</span><span style="color:#ffb964;">derive</span><span>(Debug)]
+</span><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Goal </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">pos</span><span>: Pos,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">color</span><span>: </span><span style="color:#8fbfdc;">i8</span><span>,
+</span><span>}
+</span><span>
+</span><span>#[</span><span style="color:#ffb964;">derive</span><span>(Debug)]
+</span><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Turn </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">pos</span><span>: Pos,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">dir</span><span>: Dir,
+</span><span>}
+</span><span>
+</span><span>#[</span><span style="color:#ffb964;">derive</span><span>(Debug)]
+</span><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Square </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">pos</span><span>: Pos,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">color</span><span>: </span><span style="color:#8fbfdc;">i8</span><span>,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">dir</span><span>: Dir,
+</span><span>}
+</span></code></pre>
+<p>Okay, now the program can represent the game states, it only needs to get them from somewhere.</p>
+<h2 id="the-parser">The parser</h2>
+<p>It was tempting to just hack it together and use some weird and ugly code to read parts of a file and deduce what goes where, but that would have some nightmare syntax on the input and a hell of a lot of complexity that should be avoided. Rust has a great package ecosystem, so I went fishing for a good parser.</p>
+<p>What makes a parser good. In my case ease of use was <strong>TOP</strong> priority. Checking about 8 or 9 crates with examples I settled on <a href="https://pest.rs/">Pest</a>. Ok, so I need a grammar and the crate actually generates the parser for me based on that file? How cool is that?!?</p>
+<p>The basic idea is to provide every field to every instance of every element in an unambiguous way. I did not want to get verbose, so for the first version it looked like this:</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>A:0,0 v
+</span><span>A:0,1
+</span><span>B:0,2
+</span><span>B:0,3 ^
+</span></code></pre>
+<p>Upper case letter for color, a separator colon (':'), 2 numbers separated by comma, and one of the directions <code>'^', 'v', '&lt;', '&gt;'</code> for squares, and without direction for qoals. Turns have no color, so the direction starts the line, then the separator colon and the coordinates. Whitespaces can be added for better readability. <code>//</code> style comments are supported.</p>
+<p>Some difficulties were encountered how to add the parser crates correctly to enable the code generation first, but it got resolved quickly. Also the grammar initially had a precedence mistake, so whitespaces were swallowed in unfortunate places which also got fixed later.</p>
+<p>Now the initial state can be read from file, and the internal representation can be printed
+<span style='color:#F43545;'>I</span><span style='color:#FA8901;'>N</span> <span style='color:#FAD717;'>C</span><span style='color:#00BA71;'>O</span><span style='color:#00C2DE;'>L</span><span style='color:#00418D;'>O</span><span style='color:#5F2879;'>R</span>
+for debug purposes. Only the solver part is missing ...</p>
+<h2 id="the-solver">The solver</h2>
+<p>The game state had all the elements in a vector for each type. When expanding potential states, only the position and direction of the squares change, so all the other elements can belong to a static type, and the state only needs to contain the squares.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">GameData </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">goals</span><span>: Vec&lt;Goal&gt;,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">turns</span><span>: Vec&lt;Turn&gt;,
+</span><span>}
+</span><span>
+</span><span>#[</span><span style="color:#ffb964;">derive</span><span>(Debug, Default, Clone)]
+</span><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">State </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">squares</span><span>: Vec&lt;Square&gt;,
+</span><span>}
+</span><span>
+</span><span>#[</span><span style="color:#ffb964;">derive</span><span>(Debug, Default)]
+</span><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Game </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">data</span><span>: GameData,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">state</span><span>: State,
+</span><span>}
+</span></code></pre>
+<p>After separating the dynamic and the static data, the solver could examine the possible states reachable from the initial state. Like the good old Breadth-First Search does. The solution is a vector of colors that are the actions needed in order to reach all the goals. If it is achievable.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Solver</span><span>;
+</span><span>
+</span><span style="color:#8fbfdc;">impl </span><span style="color:#ffb964;">Solver </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">solve</span><span>(</span><span style="color:#ffb964;">initial_state</span><span>: Game) -&gt; Option&lt;Vec&lt;</span><span style="color:#8fbfdc;">i8</span><span>&gt;&gt; {
+</span><span>        None
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<p>Hmm, i said it can examine the potential states...</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">solve</span><span>(</span><span style="color:#ffb964;">puzzle</span><span>: Game) -&gt; Option&lt;Vec&lt;</span><span style="color:#8fbfdc;">i8</span><span>&gt;&gt; {
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> data = &amp;puzzle.data;
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> initial_state = &amp;puzzle.state;
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> actors_num: </span><span style="color:#8fbfdc;">i8 </span><span>= initial_state.squares.len().try_into().unwrap();
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> parents = Vec::new();
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> queue = VecDeque::new();
+</span><span>    </span><span style="color:#8fbfdc;">for</span><span> action in </span><span style="color:#cf6a4c;">0</span><span>..actors_num {
+</span><span>        </span><span style="color:#8fbfdc;">let</span><span> next_state = data.action(initial_state, action);
+</span><span>        </span><span style="color:#8fbfdc;">if</span><span> data.won(&amp;next_state) {
+</span><span>            </span><span style="color:#8fbfdc;">return </span><span>Some(vec![action])
+</span><span>        }
+</span><span>        parents.push((</span><span style="color:#cf6a4c;">0</span><span>, action));
+</span><span>        queue.push_back(next_state);
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> index = </span><span style="color:#cf6a4c;">0</span><span>;
+</span><span>    </span><span style="color:#8fbfdc;">while let </span><span>Some(parent) = queue.pop_front() {
+</span><span>        index += </span><span style="color:#cf6a4c;">1</span><span>;
+</span><span>        </span><span style="color:#8fbfdc;">for</span><span> action in </span><span style="color:#cf6a4c;">0</span><span>..actors_num {
+</span><span>            </span><span style="color:#8fbfdc;">let</span><span> next_state = data.action(&amp;parent, action);
+</span><span>            </span><span style="color:#8fbfdc;">if</span><span> data.won(&amp;next_state) {
+</span><span>                </span><span style="color:#8fbfdc;">let mut</span><span> result = vec![action];
+</span><span>                </span><span style="color:#8fbfdc;">while</span><span> index != </span><span style="color:#cf6a4c;">0 </span><span>{
+</span><span>                    </span><span style="color:#8fbfdc;">let </span><span>(next_index, action) = parents.swap_remove(index - </span><span style="color:#cf6a4c;">1</span><span>);
+</span><span>                    result.push(action);
+</span><span>                    index = next_index;
+</span><span>                }
+</span><span>                result.reverse();
+</span><span>                </span><span style="color:#8fbfdc;">return </span><span>Some(result);
+</span><span>            } </span><span style="color:#8fbfdc;">else </span><span>{
+</span><span>                parents.push((index, action));
+</span><span>                queue.push_back(next_state);
+</span><span>            }
+</span><span>        }
+</span><span>    }
+</span><span>    None
+</span><span>}
+</span></code></pre>
+<p>If the code shows some resemblance to the code in the blogpost linked is not merely a coincidence. The basic ideas of the solver was almost 1-to-1 transferable to this problem. At least the initial implementation. Only the action is different: not a direction is selected but a color (and I hoped that the color will be a unique identifier throughout the puzzles, and it was). Other difference is that the solver does expand the state to the next possible states it can produce instead of leaving this job to the state (or the game data) producing some results. This was only a personal preference of mine and nothing to do with the problem or the algorithm, I just liked the interface separation better this way.</p>
+<h2 id="the-bottleneck">The bottleneck</h2>
+<p>Turns out the intial implementation was enough for a few levels, but soon hit a scalability problem. Compared to the other game, the choices scale with the number of squares. The other had 4 directions, so the states explode with this factor $\mathcal{O}(4^n)$ where this scales with $\mathcal{O}(k^n)$ with k=1 being trivial, k&gt;4 meaning extremely bad news.</p>
+<p>So cheating the next step off of the A+ student, the explored states need some serious reductions. This is achieved by adding a hashset, so we know what was already explored, and don't bother expanding or evaluating again. This means every element present in the game state needs to be hashable.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span>#[</span><span style="color:#ffb964;">derive</span><span>(/*...*/, Eq, PartialEq, Hash)]
+</span></code></pre>
+<p>All the way down.</p>
+<p>The only difference in the solver is checking in a hashset whether all the expensive logic is required, or the state can be skipped.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">let mut</span><span> states = HashSet::new();
+</span><span style="color:#888888;">// same old code
+</span><span style="color:#8fbfdc;">while let </span><span>Some(parent) = queue.pop_front() {
+</span><span>    index += </span><span style="color:#cf6a4c;">1</span><span>;
+</span><span>    </span><span style="color:#8fbfdc;">if </span><span>!states.contains(&amp;parent) {
+</span><span>        </span><span style="color:#8fbfdc;">for</span><span> action in </span><span style="color:#cf6a4c;">0</span><span>..actors_num {
+</span><span>	    </span><span style="color:#888888;">// same old code
+</span><span>        }
+</span><span>        states.insert(parent);
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<p>This had enough steam to go all the way to puzzle #17. This was the point my patience ran out with manually translating the inputs to the stupid format I came up with, and manually translating back the output to the actual puzzle.</p>
+<h2 id="the-format-change">The format change</h2>
+<p>So using consecutive letters from 'A' to describe square colors are arbitrary and hard to follow. The initial puzzle state can be translated pretty easily algorithmically, just name the first color you encounter 'A'. Or the first square's color. While playing back the solution acquired in a form of an alphabet soup and the game not even looking like how it started it is hard to maintain the mapping in mind.</p>
+<p>New parser rules were added: color is any word that starts with a capital letter. That's it. Puzzle #1 now looks like this.</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>Blue:0,0 v
+</span><span>Blue:0,1
+</span><span>Red:0,2
+</span><span>Red:0,3 ^
+</span></code></pre>
+<p>This meant some bookkeeping of the colors is needed to still be able to represent them as small integers.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">GameData </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">goals</span><span>: Vec&lt;Goal&gt;,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">turns</span><span>: Vec&lt;Turn&gt;,
+</span><span>    </span><span style="color:#8fbfdc;">pub </span><span style="color:#ffb964;">color_map</span><span>: Vec&lt;String&gt;,
+</span><span>}
+</span></code></pre>
+<p>And the mapping was updated as encountering the colors in order.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">fn </span><span style="color:#fad07a;">to_color</span><span>(</span><span style="color:#ffb964;">color </span><span>: &amp;</span><span style="color:#8fbfdc;">str</span><span>, </span><span style="color:#ffb964;">vec </span><span>: &amp; </span><span style="color:#8fbfdc;">mut </span><span>Vec&lt;String&gt;) -&gt; </span><span style="color:#8fbfdc;">i8 </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">if let </span><span>Some(pos) = vec.iter().position(|</span><span style="color:#ffb964;">e</span><span>| e == color) {
+</span><span>        </span><span style="color:#8fbfdc;">return</span><span> pos as </span><span style="color:#8fbfdc;">i8</span><span>;
+</span><span>    }
+</span><span>    vec.push(color.to_string());
+</span><span>    (vec.len() - </span><span style="color:#cf6a4c;">1</span><span>) as </span><span style="color:#8fbfdc;">i8
+</span><span>}
+</span></code></pre>
+<p>And the signature of the solver is also adapted.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">solve</span><span>(</span><span style="color:#ffb964;">puzzle</span><span>: Game) -&gt; Option&lt;Vec&lt;String&gt;&gt;
+</span></code></pre>
+<p>With ease the puzzles were encoded, solved and replayed in the browser.</p>
+<p>Until level #31. Which took an eternity to compute.</p>
+<h2 id="the-constraint">The constraint</h2>
+<p>In the article which was blatantly copied, there is a step sorting the game state to make a canonical representation of every possible state that means the same in puzzle state. The colored squares are interchangeable there, which problem does not arise here. The action that takes an initial square that is acted upon does not reorder the vector, just updates the positions and directions where necessary. This only would've been a problem for the hashset by allowing the same state represented in different permutations to get processed again.</p>
+<p>In the spirit of reducing the unnecessary exploration of states one trick I came up with was just a simple limitation. In each puzzle the squares can leave the initial bounding area, and this move is often required by the solution (pushing a square out which is directed backwards to later push back another square). Let's observe that  it is redundant for any of the squares to leave the initial area farther than the number of squares in the puzzle. This may be a valid move, but cannot contribute to a shortest solution.<sup>*</sup> This can reduce the explored states where squares just go rogue and escape early potentially without means to go back.</p>
+<p><sub><em><sup>*</sup> Proving it is left as an excercise to the reader...</em></sub></p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub struct </span><span style="color:#ffb964;">Area </span><span>{
+</span><span>    </span><span style="color:#ffb964;">tl</span><span>: Pos,
+</span><span>    </span><span style="color:#ffb964;">br</span><span>: Pos,
+</span><span>}
+</span><span>
+</span><span style="color:#8fbfdc;">impl </span><span style="color:#ffb964;">Area </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">new</span><span>(</span><span style="color:#ffb964;">tl</span><span>: &amp;Pos, </span><span style="color:#ffb964;">br</span><span>: &amp;Pos) -&gt; Area {
+</span><span>        assert!(tl.x &lt;= br.x);
+</span><span>        assert!(tl.y &lt;= br.y);
+</span><span>        Area {tl: *tl, br: *br}
+</span><span>    }
+</span><span>    </span><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">inside</span><span>(&amp;</span><span style="color:#ffb964;">self</span><span>, </span><span style="color:#ffb964;">pos</span><span>: &amp;Pos) -&gt; </span><span style="color:#8fbfdc;">bool </span><span>{
+</span><span>        </span><span style="color:#ffb964;">self</span><span>.tl.x &lt;= pos.x &amp;&amp; pos.x &lt;= </span><span style="color:#ffb964;">self</span><span>.br.y &amp;&amp; </span><span style="color:#ffb964;">self</span><span>.tl.y &lt;= pos.y &amp;&amp; pos.y &lt;= </span><span style="color:#ffb964;">self</span><span>.br.y
+</span><span>    }
+</span><span>    </span><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">tl</span><span>(&amp;</span><span style="color:#ffb964;">self</span><span>) -&gt; Pos {
+</span><span>        </span><span style="color:#ffb964;">self</span><span>.tl
+</span><span>    }
+</span><span>    </span><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">br</span><span>(&amp;</span><span style="color:#ffb964;">self</span><span>) -&gt; Pos {
+</span><span>        </span><span style="color:#ffb964;">self</span><span>.br
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<p>This represents the original area of interest outside of which is not a valid move for the sake of reducing complexity.
+Area computing code was already present for the debug drawing, now properly encapsulated.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">get_area</span><span>(</span><span style="color:#ffb964;">state</span><span>: &amp;State, </span><span style="color:#ffb964;">data</span><span>: &amp;GameData) -&gt; Area {
+</span><span>    assert!(!state.squares.is_empty());
+</span><span>
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> tl = state.squares[</span><span style="color:#cf6a4c;">0</span><span>].pos;
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> br = tl;
+</span><span>    </span><span style="color:#8fbfdc;">for</span><span> e in &amp;state.squares {
+</span><span>        tl.x = min(tl.x, e.pos.x);
+</span><span>        tl.y = min(tl.y, e.pos.y);
+</span><span>        br.x = max(br.x, e.pos.x);
+</span><span>        br.y = max(br.y, e.pos.y);
+</span><span>    }
+</span><span>    </span><span style="color:#8fbfdc;">for</span><span> e in &amp;data.goals {
+</span><span>        tl.x = min(tl.x, e.pos.x);
+</span><span>        tl.y = min(tl.y, e.pos.y);
+</span><span>        br.x = max(br.x, e.pos.x);
+</span><span>        br.y = max(br.y, e.pos.y);
+</span><span>    }
+</span><span>    </span><span style="color:#8fbfdc;">for</span><span> e in &amp;data.turns {
+</span><span>        tl.x = min(tl.x, e.pos.x);
+</span><span>        tl.y = min(tl.y, e.pos.y);
+</span><span>        br.x = max(br.x, e.pos.x);
+</span><span>        br.y = max(br.y, e.pos.y);
+</span><span>    }
+</span><span>
+</span><span>    Area{tl, br}
+</span><span>}
+</span></code></pre>
+<p>In the solver this needs to be incorporated to filter out the runaway squares. Be there AND be square... </p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">solve</span><span>(</span><span style="color:#ffb964;">puzzle</span><span>: Game) -&gt; Option&lt;Vec&lt;String&gt;&gt; {
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> data = &amp;puzzle.data;
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> initial_state = &amp;puzzle.state;
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> area = get_area(initial_state, data);
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> tl = area.tl();
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> br = area.br();
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> num_sq = initial_state.squares.len() - </span><span style="color:#cf6a4c;">1</span><span>;
+</span><span>    tl.x-=num_sq as </span><span style="color:#8fbfdc;">i8</span><span>;
+</span><span>    tl.y-=num_sq as </span><span style="color:#8fbfdc;">i8</span><span>;
+</span><span>    br.x+=num_sq as </span><span style="color:#8fbfdc;">i8</span><span>;
+</span><span>    br.y+=num_sq as </span><span style="color:#8fbfdc;">i8</span><span>;
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> area = Area::new(&amp;tl, &amp;br);
+</span></code></pre>
+<p>The area is expanded by the number of squares. After some thinking it got reduced by one. The reason: no meaningful change can come when all the squares are outside (pushing eachother out then back) because what if there were any turns or goals there? Then the initial area would be bigger. The last meaningful state change (required for a solution) happens inside the boundaries of the initial area, that means only N-1 squares can be outside for that move to make it make sense.</p>
+<p>The filtering happens before adding to the next explorable states. So every state that has a bad move is computed, checked, and discarded, which is better than pursuing it further.</p>
+<pre data-lang="rust" style="background-color:#151515;color:#e8e8d3;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#8fbfdc;">if</span><span> data.won(&amp;next_state) {
+</span><span>    </span><span style="color:#888888;">// same old code
+</span><span>} </span><span style="color:#8fbfdc;">else </span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">if</span><span> next_state.squares.iter().any(|</span><span style="color:#ffb964;">sq</span><span>| !area.inside(&amp;sq.pos)) {
+</span><span>        </span><span style="color:#8fbfdc;">continue</span><span>;
+</span><span>    }
+</span><span>    parents.push((index, action));
+</span><span>    queue.push_back(next_state);
+</span><span>}
+</span></code></pre>
+<p>This made the runaway squares problem disappear, and fast enough for the remainder of the puzzles to be completed.</p>
+<h2 id="the-conclusion">The conclusion</h2>
+<p>There are many other areas that could be optimized or algorithmically improved. Actually, there is a LOT of room for improvement, but the problem at hand is solved isn't it?</p>
+<p>I encourage everyone to read the original (and much more quality) article to the end, and learn from it.</p>
+<p>The code is up on <a href="https://github.com/NosyLayman/gameaboutsquares_solver">github</a>, if You have any idea to improve it, or just want to play with it.</p>
+
+        </div>
+
+        
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright">
+                        <span>© 
+    2022
+ Nosy Layman</span>
+                    <span class="copyright-theme">
+                        <span class="copyright-theme-sep">:: </span>
+                        Theme: <a href="https://github.com/pawroman/zola-theme-terminimal/">Terminimal</a> by pawroman
+                    </span>
+                </div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>
