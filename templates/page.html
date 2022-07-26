@@ -1,0 +1,8 @@
+{% extends "terminimal/templates/page.html" %}
+{% import "macros.html" as macros %}
+{% block extra_head %}
+{% if page.extra.katex %}
+{{ macros::katex() }}
+{% endif %}
+{% endblock %}
+
